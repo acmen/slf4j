@@ -35,7 +35,9 @@ import org.slf4j.helpers.Util;
 /**
  * Log4jLoggerFactory is an implementation of {@link ILoggerFactory} returning
  * the appropriate named {@link Log4jLoggerAdapter} instance.
- * 
+ *
+ * 实现 ILoggerFactory 接口
+ *
  * @author Ceki G&uuml;lc&uuml;
  */
 public class Log4jLoggerFactory implements ILoggerFactory {
@@ -45,6 +47,7 @@ public class Log4jLoggerFactory implements ILoggerFactory {
     // check for delegation loops
     static {
         try {
+            // 先判断是否存在 log4j 的包
             Class.forName("org.apache.log4j.Log4jLoggerFactory");
             String part1 = "Detected both log4j-over-slf4j.jar AND bound slf4j-log4j12.jar on the class path, preempting StackOverflowError. ";
             String part2 = "See also " + LOG4J_DELEGATION_LOOP_URL + " for more details.";
@@ -61,6 +64,7 @@ public class Log4jLoggerFactory implements ILoggerFactory {
     ConcurrentMap<String, Logger> loggerMap;
 
     public Log4jLoggerFactory() {
+
         loggerMap = new ConcurrentHashMap<String, Logger>();
         // force log4j to initialize
         org.apache.log4j.LogManager.getRootLogger();
@@ -72,6 +76,7 @@ public class Log4jLoggerFactory implements ILoggerFactory {
      * @see org.slf4j.ILoggerFactory#getLogger(java.lang.String)
      */
     public Logger getLogger(String name) {
+        // 重复利用
         Logger slf4jLogger = loggerMap.get(name);
         if (slf4jLogger != null) {
             return slf4jLogger;

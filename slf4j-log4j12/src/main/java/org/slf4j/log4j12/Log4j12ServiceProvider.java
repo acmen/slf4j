@@ -30,8 +30,12 @@ public class Log4j12ServiceProvider implements SLF4JServiceProvider {
         }
     }
 
+    /**
+     * 初始化
+     */
     @Override
     public void initialize() {
+        // 定义好需要的东东，这些就是那些接口的实现！
         loggerFactory = new Log4jLoggerFactory();
         markerFactory = new BasicMarkerFactory();
         mdcAdapter = new Log4jMDCAdapter();

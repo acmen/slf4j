@@ -100,7 +100,15 @@ public final class LoggerFactory {
 
     static volatile SLF4JServiceProvider PROVIDER;
 
+    /**
+     * 获取 SLF4JServiceProvider
+     * @return
+     */
     private static List<SLF4JServiceProvider> findServiceProviders() {
+        // 很关键的一行代码
+        // 在ServiceLoader.load的时候，根据传入的接口类，
+        // 遍历META-INF/services目录下的以该类命名的文件中的所有类，并实例化返回。
+        // 获取 SLF4JServiceProvider 的所有实现
         ServiceLoader<SLF4JServiceProvider> serviceLoader = ServiceLoader.load(SLF4JServiceProvider.class);
         List<SLF4JServiceProvider> providerList = new ArrayList<SLF4JServiceProvider>();
         for (SLF4JServiceProvider provider : serviceLoader) {
@@ -118,7 +126,7 @@ public final class LoggerFactory {
      */
     static private final String[] API_COMPATIBILITY_LIST = new String[] { "1.8", "1.7" };
 
-    // private constructor prevents instantiation
+    // 不允许创建对象
     private LoggerFactory() {
     }
 
@@ -133,12 +141,16 @@ public final class LoggerFactory {
      * <p/>
      * You are strongly discouraged from calling this method in production code.
      */
+    // 进行重置
     static void reset() {
         INITIALIZATION_STATE = UNINITIALIZED;
     }
 
+    // 初始化
     private final static void performInitialization() {
+        // 进行绑定
         bind();
+        // 初始化成功
         if (INITIALIZATION_STATE == SUCCESSFUL_INITIALIZATION) {
             versionSanityCheck();
         }
@@ -146,27 +158,39 @@ public final class LoggerFactory {
 
     private final static void bind() {
         try {
+            // 获取所有 SLF4JServiceProvider 接口的实现！！使用 SPI 这个概念做插件化
             List<SLF4JServiceProvider> providersList = findServiceProviders();
+
+            // 如果有多个实现则打印错误的信息
             reportMultipleBindingAmbiguity(providersList);
             if (providersList != null && !providersList.isEmpty()) {
+              // 使用第一个作为provider
             	PROVIDER = providersList.get(0);
+            	// 调用初始化方法
             	PROVIDER.initialize();
+            	// 标记初始化成功
             	INITIALIZATION_STATE = SUCCESSFUL_INITIALIZATION;
+            	  // 打印使用的provider信息
                 reportActualBinding(providersList);
+                //
                 fixSubstituteLoggers();
+                //
                 replayEvents();
                 // release all resources in SUBST_FACTORY
                 SUBST_PROVIDER.getSubstituteLoggerFactory().clear();
             } else {
+                // 如果没有任何的实现，标记初始化失败，并打印错误信息
                 INITIALIZATION_STATE = NOP_FALLBACK_INITIALIZATION;
                 Util.report("No SLF4J providers were found.");
                 Util.report("Defaulting to no-operation (NOP) logger implementation");
                 Util.report("See " + NO_PROVIDERS_URL + " for further details.");
 
+                //
                 Set<URL> staticLoggerBinderPathSet = findPossibleStaticLoggerBinderPathSet();
                 reportIgnoredStaticLoggerBinders(staticLoggerBinderPathSet);
             }
         } catch (Exception e) {
+            // 产生异常打印错误信息，并抛出异常
             failedBinding(e);
             throw new IllegalStateException("Unexpected initialization failure", e);
         }
@@ -223,6 +247,10 @@ public final class LoggerFactory {
 
     }
 
+    /**
+     * 绑定失败，设置变量并打印信息
+     * @param t
+     */
     static void failedBinding(Throwable t) {
         INITIALIZATION_STATE = FAILED_INITIALIZATION;
         Util.report("Failed to instantiate SLF4J LoggerFactory", t);
@@ -290,8 +318,12 @@ public final class LoggerFactory {
         Util.report("See also " + REPLAY_URL);
     }
 
+    /**
+     * 校验版本信息
+     */
     private final static void versionSanityCheck() {
         try {
+            // 获取需要的版本
             String requested = PROVIDER.getRequesteApiVersion();
 
             boolean match = false;
@@ -300,6 +332,7 @@ public final class LoggerFactory {
                     match = true;
                 }
             }
+            // 版本不行打印日志信息
             if (!match) {
                 Util.report("The requested version " + requested + " by your slf4j binding is not compatible with "
                                 + Arrays.asList(API_COMPATIBILITY_LIST).toString());
@@ -323,10 +356,12 @@ public final class LoggerFactory {
     /**
      * Prints a warning message on the console if multiple bindings were found
      * on the class path. No reporting is done otherwise.
-     * 
+     * 打印异常信息，如果有多个实现的话
      */
     private static void reportMultipleBindingAmbiguity(List<SLF4JServiceProvider> providerList) {
+        // 有多个实现为 true
         if (isAmbiguousProviderList(providerList)) {
+            // 控制台打印error信息
             Util.report("Class path contains multiple SLF4J providers.");
             for (SLF4JServiceProvider provider : providerList) {
                 Util.report("Found provider [" + provider + "]");
@@ -345,13 +380,17 @@ public final class LoggerFactory {
     /**
      * Return a logger named according to the name parameter using the
      * statically bound {@link ILoggerFactory} instance.
-     * 
+     *
+     * 获取logger
+     *
      * @param name
      *            The name of the logger.
      * @return logger
      */
     public static Logger getLogger(String name) {
+        // 获取 LoggerFactory 的实现
         ILoggerFactory iLoggerFactory = getILoggerFactory();
+        // 生成logger类
         return iLoggerFactory.getLogger(name);
     }
 
@@ -398,7 +437,9 @@ public final class LoggerFactory {
      * <p/>
      * <p/>
      * ILoggerFactory instance is bound with this class at compile time.
-     * 
+     *
+     * 返回ILoggerFactory的接口实现
+     *
      * @return the ILoggerFactory instance in use
      */
     public static ILoggerFactory getILoggerFactory() {
@@ -407,30 +448,40 @@ public final class LoggerFactory {
 
     /**
      * Return the {@link SLF4JServiceProvider} in use.
-
+     *
+     * 返回 SLF4JServiceProvider
+     *
      * @return provider in use
      * @since 1.8.0
      */
     static SLF4JServiceProvider getProvider() {
+        // 判断是否已经初始化了
         if (INITIALIZATION_STATE == UNINITIALIZED) {
+            // 防止并发
             synchronized (LoggerFactory.class) {
                 if (INITIALIZATION_STATE == UNINITIALIZED) {
+                    // 标志处于初始化中
                     INITIALIZATION_STATE = ONGOING_INITIALIZATION;
+                    // 进行初始化
                     performInitialization();
                 }
             }
         }
-        switch (INITIALIZATION_STATE) {
-        case SUCCESSFUL_INITIALIZATION:
-            return PROVIDER;
-        case NOP_FALLBACK_INITIALIZATION:
-            return NOP_FALLBACK_FACTORY;
-        case FAILED_INITIALIZATION:
-            throw new IllegalStateException(UNSUCCESSFUL_INIT_MSG);
-        case ONGOING_INITIALIZATION:
-            // support re-entrant behavior.
-            // See also http://jira.qos.ch/browse/SLF4J-97
-            return SUBST_PROVIDER;
+        // 根据初始化的状态
+        switch(INITIALIZATION_STATE) {
+            // 初始化成功
+            case SUCCESSFUL_INITIALIZATION:
+                return PROVIDER;
+            case NOP_FALLBACK_INITIALIZATION:
+                // 没有任何的实现，使用默认的实现类
+                return NOP_FALLBACK_FACTORY;
+            case FAILED_INITIALIZATION:
+                // 初始化失败 直接抛出异常信息
+                throw new IllegalStateException(UNSUCCESSFUL_INIT_MSG);
+            case ONGOING_INITIALIZATION:
+                // support re-entrant behavior.
+                // See also http://jira.qos.ch/browse/SLF4J-97
+                return SUBST_PROVIDER;
         }
         throw new IllegalStateException("Unreachable code");
     }

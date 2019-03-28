@@ -49,7 +49,7 @@ public interface ILoggerFactory {
      *
      * <p>Certain extremely simple logging systems, e.g. NOP, may always
      * return the same logger instance regardless of the requested name.
-     * 
+     * 就是返回一个logger 的实现
      * @param name the name of the Logger to return
      * @return a Logger instance 
      */
